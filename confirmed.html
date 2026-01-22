@@ -16,6 +16,7 @@
       --cream: #FAFAF8;
       --white: #FFFFFF;
       --text-light: #6B5D52;
+      --error: #D32F2F;
     }
 
     * {
@@ -73,6 +74,41 @@
       margin-bottom: 1.5rem;
     }
 
+    .loading-state {
+      display: block;
+    }
+
+    .loading-state.hide {
+      display: none;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #E5DDD0;
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1.5rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: var(--text-light);
+      font-size: 1.1rem;
+    }
+
+    .success-state {
+      display: none;
+    }
+
+    .success-state.show {
+      display: block;
+    }
+
     .success-icon {
       width: 80px;
       height: 80px;
@@ -86,6 +122,34 @@
     }
 
     .success-icon svg {
+      width: 40px;
+      height: 40px;
+      stroke: white;
+      stroke-width: 3;
+      fill: none;
+    }
+
+    .error-state {
+      display: none;
+    }
+
+    .error-state.show {
+      display: block;
+    }
+
+    .error-icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #D32F2F, #c62828);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3);
+    }
+
+    .error-icon svg {
       width: 40px;
       height: 40px;
       stroke: white;
@@ -149,24 +213,103 @@
   <div class="container">
     <img src="/images/logo.png" alt="17 Jewels" class="logo">
     
-    <div class="success-icon">
-      <svg viewBox="0 0 24 24">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
+    <div class="loading-state" id="loadingState">
+      <div class="spinner"></div>
+      <p class="loading-text">Confirming your email...</p>
     </div>
-    
-    <h1>Email Confirmed!</h1>
-    
-    <p>
-      Your email has been verified successfully. You can now return to the 
-      <strong>17 Jewels</strong> app and sign in to start cataloging your pocket watch collection.
-    </p>
-    
-    <a href="pocketwatchapp://" class="btn">Open 17 Jewels App</a>
-    
-    <p class="footer-text">
-      If the button doesn't work, simply open the app manually on your device.
-    </p>
+
+    <div class="success-state" id="successState">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      
+      <h1>Email Confirmed!</h1>
+      
+      <p>
+        Your email has been verified successfully. You can now return to the 
+        <strong>17 Jewels</strong> app and sign in to start cataloging your pocket watch collection.
+      </p>
+      
+      <a href="pocketwatchapp://" class="btn">Open 17 Jewels App</a>
+      
+      <p class="footer-text">
+        If the button doesn't work, simply open the app manually on your device.
+      </p>
+    </div>
+
+    <div class="error-state" id="errorState">
+      <div class="error-icon">
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </div>
+      
+      <h1>Confirmation Failed</h1>
+      
+      <p id="errorMessage">
+        This confirmation link is invalid or has expired. Please try signing up again or request a new confirmation email.
+      </p>
+      
+      <a href="pocketwatchapp://" class="btn">Open 17 Jewels App</a>
+    </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <script>
+    const SUPABASE_URL = 'https://atyvcsggpfvsazfruifbe.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0eWNzZ2dwZnZzYXpmcnVpZmJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMzMDQxMTksImV4cCI6MjA3ODg4MDExOX0.6hKOdzfk7Gj4SHJIeX1YgmQz8Siabrn1GJhg_BIBLho';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const loadingState = document.getElementById('loadingState');
+    const successState = document.getElementById('successState');
+    const errorState = document.getElementById('errorState');
+    const errorMessage = document.getElementById('errorMessage');
+
+    function showSuccess() {
+      loadingState.classList.add('hide');
+      successState.classList.add('show');
+    }
+
+    function showError(message) {
+      loadingState.classList.add('hide');
+      errorMessage.textContent = message || 'This confirmation link is invalid or has expired.';
+      errorState.classList.add('show');
+    }
+
+    async function confirmEmail() {
+      try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (accessToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+
+          if (error) {
+            showError(error.message);
+            return;
+          }
+
+          showSuccess();
+          return;
+        }
+
+        showError('No confirmation token found in the URL.');
+
+      } catch (err) {
+        showError('An unexpected error occurred. Please try again.');
+      }
+    }
+
+    confirmEmail();
+  </script>
 </body>
 </html>
